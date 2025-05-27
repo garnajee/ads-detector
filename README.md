@@ -1,4 +1,4 @@
-# Architecture fichiers
+# Ads detector (and automatic deletion)
 
 This repository aims at detecting and deleting ads for a specifiv tv channel and tv show.
 
