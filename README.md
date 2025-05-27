@@ -22,6 +22,14 @@ ads-detector/
 └── requirements.txt
 ```
 
+Other interresting scripts:
+
+```
+├── extract-frame-logo.py       # extract logo png from video with given coordinates
+├── keep-ads-only.py            # keep only ads from the video with a given list of range
+├── delete-ads.py               # delete ads with a given list of ranges
+```
+
 ## How to run
 
 - detect ads:
