@@ -5,7 +5,7 @@ This repository aims at detecting and deleting ads for a specifiv tv channel and
 ```
 ads-detector/
 │
-├── main.py                     # Main script to run the detector
+├── detect_ads.py               # Main script to run the detector
 │
 ├── src/                        # Core library for the ad detection logic
 │   ├── __init__.py
@@ -27,16 +27,37 @@ Other interresting scripts:
 ```
 ├── extract-frame-logo.py       # extract logo png from video with given coordinates
 ├── keep-ads-only.py            # keep only ads from the video with a given list of range
-├── delete-ads.py               # delete ads with a given list of ranges
+├── delete_ads.py               # delete ads with a given list of ranges
+├── detect-and-delete-ads.py    # obvious.
 ```
 
 ## How to run
 
-- detect ads:
+- prepare env:
 
-```
+```bash
 python3 -m venv venv
 pip install -r requirements.txt
-python3 main.py video.mkv logo_dataset
+source venv/bin/activate
 ```
 
+- detect ads:
+
+```bash
+python3 detect_ads.py video.mkv logo_dataset
+```
+
+- delete ads:
+
+```bash
+# modify the if __name__ ... part, especially the input/output file
+# and the original_remove_ranges
+python3 delete_ads.py
+```
+
+- detect and delete ads
+
+```bash
+python detect-and-delete-ads.py --help
+python detect-and-delete-ads.py video.mkv logo_dataset
+```
