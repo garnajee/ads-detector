@@ -75,7 +75,6 @@ def upload_daily_video(gofile_token, folder_id=None, output_dir="./output"):
         return None
 
 def main():
-    """Fonction principale pour utiliser le script en ligne de commande"""
     gofile_token = os.getenv("GOFILE_TOKEN")
     folder_id = os.getenv("FOLDER_ID")  # Peut être None
     output_dir = os.getenv("OUTPUT_DIR", "./output")  # Valeur par défaut si non définie

@@ -4,14 +4,10 @@ import argparse
 import logging
 from pathlib import Path
 
-from src.logo_detector import LogoDetector # Assuming src is in PYTHONPATH or main.py is one level up
-from src.utils import seconds_to_hms       # Assuming this function is in utils.py
+from src.logo_detector import LogoDetector
+from src.utils import seconds_to_hms
 
 def run_analysis(video_path=None, logo_dataset=None, logo_coords=None, min_duration=60):
-    """
-    Version modifiée qui peut être appelée directement avec des paramètres
-    ou depuis la ligne de commande.
-    """
     ##parser = argparse.ArgumentParser(description='Détecteur de publicités basé sur l\'absence de logo')
     ##parser.add_argument('video_path', help='Chemin vers la vidéo à analyser')
     ##parser.add_argument('logo_dataset', help='Chemin vers le dossier contenant les logos PNG')
@@ -35,7 +31,6 @@ def run_analysis(video_path=None, logo_dataset=None, logo_coords=None, min_durat
                     setattr(self, key, value)
         args = Args(**args_dict)
     else:
-        # Mode ligne de commande original
         parser = argparse.ArgumentParser(description='Détecteur de publicités basé sur l\'absence de logo')
         parser.add_argument('video_path', help='Chemin vers la vidéo à analyser')
         parser.add_argument('logo_dataset', help='Chemin vers le dossier contenant les logos PNG')

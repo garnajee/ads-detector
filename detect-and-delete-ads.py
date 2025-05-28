@@ -91,20 +91,17 @@ def main():
         # run_analysis retourne (None, None) en cas d'erreur interne
         if hms_results is None:
             print("❌ Échec de la détection des publicités (run_analysis a retourné None).")
-            return 1 # Retourner un code d'erreur
+            return 1
         
         if not hms_results: # Si la liste est vide
             print("✅ Aucune publicité détectée - aucune action nécessaire.")
-            return 0 # Succès, mais rien à faire
+            return 0
 
         print(f"📊 Plages publicitaires détectées (hms_results) : {hms_results}")
 
     except Exception as e:
         print(f"❌ Erreur critique lors de l'exécution de detect_ads.run_analysis : {e}")
-        # Afficher la trace de l'erreur pour plus de détails si nécessaire
-        import traceback
-        traceback.print_exc()
-        return 1 # Retourner un code d'erreur
+        return 1
 
     video_input_basename = os.path.basename(abs_video_path)
     video_name_part, _ = os.path.splitext(video_input_basename)
@@ -123,13 +120,13 @@ def main():
     print(f"🎞️ Lancement de la suppression des publicités.")
     print(f"    Vidéo d'entrée : {abs_video_path}")
     print(f"    Vidéo de sortie : {output_video_path}")
-    print(f"    Plages à supprimer : {hms_results}") # Corrigé ici
+    print(f"    Plages à supprimer : {hms_results}")
 
     try:
         delete_ads_main(
             input_file=abs_video_path,
             output_file=output_video_path,
-            original_remove_ranges=hms_results # Corrigé ici
+            original_remove_ranges=hms_results
         )
         print(f"✅ Vidéo traitée et sauvegardée sous : {output_video_path}")
 
@@ -143,11 +140,9 @@ def main():
 
     except Exception as e:
         print(f"❌ Erreur lors de l'exécution de delete-ads.main : {e}")
-        import traceback
-        traceback.print_exc()
         if args.delete_original:
             print("⚠️ La suppression de la vidéo originale a été annulée en raison de l'erreur précédente.")
-        return 1 # Retourner un code d'erreur
+        return 1
 
     if os.path.exists(output_video_path):
         input_size = os.path.getsize(abs_video_path) if os.path.exists(abs_video_path) else 0 # Vérifier si l'original existe encore
@@ -159,12 +154,12 @@ def main():
             print(f"📥 Fichier original: {abs_video_path} ({input_size / (1024*1024):.1f} MB)")
             print(f"💾 Réduction de taille: {size_reduction:.1f}%")
         print(f"📤 Fichier sans pubs: {output_video_path} ({output_size / (1024*1024):.1f} MB)")
-        print(f"🎯 Segments supprimés: {len(hms_results)}") # Corrigé ici
+        print(f"🎯 Segments supprimés: {len(hms_results)}")
     else:
         print(f"❓ Le fichier de sortie attendu '{output_video_path}' n'a pas été trouvé après le traitement.")
-        return 1 # Retourner un code d'erreur
+        return 1
     
-    return 0 # Succès global
+    return 0
 
 if __name__ == "__main__":
     exit_code = main()
