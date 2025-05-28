@@ -37,8 +37,9 @@ def main():
         help="Chemin vers le fichier vidéo d'entrée."
     )
     parser.add_argument(
-        "logo_dataset", # Retiré default="logo_dataset" car c'est un argument positionnel
-        help="Chemin vers le dossier logo_dataset pour detect-ads.py."
+        "--logo_dataset",
+        default="./logo_dataset",
+        help="Chemin vers le dossier logo_dataset pour detect_ads.py."
     )
     parser.add_argument(
         "--output_dir",
@@ -56,20 +57,20 @@ def main():
         type=int,
         metavar=('X', 'Y', 'WIDTH', 'HEIGHT'),
         default=[120, 905, 163, 103],
-        help="Argument 'logo_coords' pour detect-ads.py (défaut: [120, 905, 163, 103] pour CPVA)."
+        help="Argument 'logo_coords' pour detect_ads.py (défaut: [120, 905, 163, 103] pour CPVA)."
     )
     parser.add_argument(
         "--min_duration",
         type=int,
         default=60,
-        help="Argument 'min_duration' pour detect-ads.py (défaut: 60 secondes)."
+        help="Argument 'min_duration' pour detect_ads.py (défaut: 60 secondes)."
     )
 
     args = parser.parse_args()
 
     if not os.path.isfile(args.video_path):
         print(f"Erreur: Le fichier vidéo d'entrée '{args.video_path}' n'a pas été trouvé.")
-        return 1 # Retourner un code d'erreur
+        return 1
 
     abs_video_path = os.path.abspath(args.video_path)
     abs_logo_dataset = os.path.abspath(args.logo_dataset)
@@ -99,7 +100,7 @@ def main():
         print(f"📊 Plages publicitaires détectées (hms_results) : {hms_results}")
 
     except Exception as e:
-        print(f"❌ Erreur critique lors de l'exécution de detect-ads.run_analysis : {e}")
+        print(f"❌ Erreur critique lors de l'exécution de detect_ads.run_analysis : {e}")
         # Afficher la trace de l'erreur pour plus de détails si nécessaire
         import traceback
         traceback.print_exc()
