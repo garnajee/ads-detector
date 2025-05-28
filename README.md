@@ -61,3 +61,35 @@ python3 delete_ads.py
 python detect-and-delete-ads.py --help
 python detect-and-delete-ads.py video.mkv logo_dataset
 ```
+
+## upload it to [gofile](gofile.io)
+
+> This programm will automatically find today's video and upload it to gofile
+
+First need to install pip package:
+
+```bash
+pip install python-dotenv
+pip install gofilepy-0.4.0-py3-none-any.whl
+```
+
+This package was built from [here](https://github.com/garnajee/Gofile).
+
+Then, modify `.env` file, and add your token and/of gofile's folder id
+
+```bash
+cp .env.example .env
+vim .env
+```
+
+- run
+
+```bash
+python up-gofile.py
+```
+
+You can upload it to an existing folder or if `folder_id` is not set, it will create one automatically.
+
+> [!NOTE]
+> If you want to upload to an existing folder, you need to give the id which is something like this `a08f31e7-d478-4097-5673-50g8391c2e8d` (uuid4 style)
+
