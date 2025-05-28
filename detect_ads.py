@@ -33,7 +33,7 @@ def run_analysis(video_path=None, logo_dataset=None, logo_coords=None, min_durat
     else:
         parser = argparse.ArgumentParser(description='Détecteur de publicités basé sur l\'absence de logo')
         parser.add_argument('video_path', help='Chemin vers la vidéo à analyser')
-        parser.add_argument('logo_dataset', help='Chemin vers le dossier contenant les logos PNG')
+        parser.add_argument('--logo_dataset',default="./logo_dataset", help='Chemin vers le dossier contenant les logos PNG')
         parser.add_argument('--logo-coords', nargs=4, type=int, metavar=('X', 'Y', 'WIDTH', 'HEIGHT'),
                             default=[120, 905, 163, 103], help='Coordonnées du logo (x y largeur hauteur)')
         parser.add_argument('--min-duration', type=int, default=60,
