@@ -63,6 +63,14 @@ class LogoDetector:
         self._load_logo_templates()
         self.video_duration = 0.0 # Sera défini lors de l'analyse
 
+        # using cached templates
+        self.cache_path = Path("cache_templates.npz")
+        if self.cache_path.exists():
+            self._load_from_cache()
+        else:
+            self._load_logo_templates()
+            self._save_to_cache()
+
     def _load_logo_templates(self):
         """Charge tous les templates de logos depuis le dataset."""
         self.logger.info(f"Chargement des templates de logos depuis {self.logo_dataset_path}")
@@ -93,6 +101,25 @@ class LogoDetector:
         if not self.logo_templates:
             self.logger.error("Aucun template de logo valide n'a pu être chargé.")
             raise ValueError("Aucun template de logo valide n'a pu être chargé")
+
+    def _save_to_cache(self):
+        # Sauvegarde tous les templates et masques en .npz
+        np.savez_compressed(
+            self.cache_path,
+            *self.logo_templates,
+            # on sépare templates et masks en deux groupes de variables arr_0…arr_N
+        )
+        np.savez_compressed(
+            Path("cache_masks.npz"),
+            *self.logo_masks
+        )
+
+    def _load_from_cache(self):
+        # Charge le fichier .npz
+        data_t = np.load(self.cache_path)
+        self.logo_templates = [data_t[f] for f in data_t.files]
+        data_m = np.load("cache_masks.npz")
+        self.logo_masks = [data_m[f] for f in data_m.files]
 
     def _extract_logo_region(self, frame: np.ndarray) -> Optional[np.ndarray]:
         """Extrait la région du logo depuis une frame."""
