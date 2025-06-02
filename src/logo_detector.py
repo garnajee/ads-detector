@@ -60,7 +60,6 @@ class LogoDetector:
         self.logger = logging.getLogger(__name__)
         # self.logger.setLevel(logging.INFO) # Le niveau est mieux géré par la config globale.
 
-        self._load_logo_templates()
         self.video_duration = 0.0 # Sera défini lors de l'analyse
 
         # using cached templates
