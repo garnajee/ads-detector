@@ -284,133 +284,64 @@ class LogoDetector:
         suspicious_intervals = []
         
         # Utiliser la médiane comme base plus robuste que la moyenne si possible, sinon la moyenne.
-        # Si la std est très grande, la moyenne peut être trompeuse.
         base_interval_for_expectation = stats.get('median_interval', stats.get('mean_interval', self.min_ad_interval * 1.5))
-        if base_interval_for_expectation <=0: # Sanity check
-             base_interval_for_expectation = self.min_ad_interval * 1.5
-
+        if base_interval_for_expectation <= 0:  # Sanity check
+            base_interval_for_expectation = self.min_ad_interval * 1.5
 
         anomaly_threshold = base_interval_for_expectation + (stats.get('std_interval', self.min_ad_interval) * self.anomaly_threshold_multiplier)
-        anomaly_threshold = max(anomaly_threshold, self.max_expected_ad_interval, base_interval_for_expectation * 1.5) # Assurer un seuil minimum raisonnable
+        anomaly_threshold = max(anomaly_threshold, self.max_expected_ad_interval, base_interval_for_expectation * 1.5)
 
         self.logger.info(f"Seuil d'anomalie pour les gaps: > {anomaly_threshold/60:.1f} min (basé sur intervalle de {base_interval_for_expectation/60:.1f} min)")
 
-        # Considérer tous les points de détection (logo présent ou non) pour définir les "gaps" de non-publicité
-        # Les "ads" sont où logo_present == False.
-        # Un "gap suspect" est un long segment où logo_present == True entre deux pubs,
-        # ou avant la première pub / après la dernière pub.
-
+        # Récupérer les détections de publicités (logo absent) de la passe 1
         ad_detections = sorted([dp for dp in self.detection_history if not dp.logo_present and dp.analysis_pass == 1], key=lambda x: x.timestamp)
 
-        # Points de référence incluant le début et la fin de la vidéo
-        reference_points = [0.0] + [dp.timestamp for dp in ad_detections] + [self.video_duration]
-        reference_points = sorted(list(set(reference_points))) # Uniques et triés
+        # Cas spécial : aucune publicité détectée
+        if not ad_detections:
+            if self.video_duration > anomaly_threshold:
+                expected_ads = max(1, int(self.video_duration / base_interval_for_expectation))
+                priority = (self.video_duration / base_interval_for_expectation) * expected_ads
+                suspicious_intervals.append(SuspiciousInterval(0, self.video_duration, expected_ads, 0, self.video_duration, priority))
+                self.logger.info(f"Aucune pub détectée, toute la vidéo ({self.video_duration/60:.1f} min) est suspecte.")
+            return suspicious_intervals
 
-        for i in range(len(reference_points) - 1):
-            start_gap = reference_points[i]
-            end_gap = reference_points[i+1]
-            gap_duration = end_gap - start_gap
-
-            # Est-ce un gap de "programme" (entre deux pubs, ou avant/après pub)?
-            # Si start_gap est 0 (début video) et end_gap est la 1ere pub, c'est un gap de programme potentiel.
-            # Si start_gap est une pub et end_gap est la pub suivante, c'est un gap de programme.
-            # Si start_gap est la dernière pub et end_gap est la fin video, c'est un gap de programme.
+        # Analyser les intervalles entre les publicités détectées
+        for idx, ad in enumerate(ad_detections):
+            # Segment de programme avant la première pub
+            if idx == 0 and ad.timestamp > anomaly_threshold:
+                duration_prog = ad.timestamp
+                expected_ads_missed = max(1, int(duration_prog / base_interval_for_expectation) - 1)
+                if expected_ads_missed > 0:
+                    priority = (duration_prog / base_interval_for_expectation) * expected_ads_missed
+                    suspicious_intervals.append(SuspiciousInterval(0, ad.timestamp, expected_ads_missed, 0, duration_prog, priority))
+                    self.logger.info(f"Intervalle suspect (début vidéo): {seconds_to_hms(0)} -> {seconds_to_hms(ad.timestamp)} (durée: {duration_prog/60:.1f}min, pubs attendues: {expected_ads_missed})")
             
-            # On s'intéresse aux longs segments SANS pub.
-            # Ad_detections sont les moments où il y a pub.
-            # Un intervalle [ad_detections[j].timestamp, ad_detections[j+1].timestamp] est un intervalle entre débuts de pub.
-            # Ce n'est pas ce qu'on veut.
-            # On veut les intervalles où le LOGO EST PRÉSENT pendant longtemps.
-
-            # Repensons:
-            # On a des detection_points. Certains sont logo_present=True, d'autres False.
-            # Un suspicious interval est une longue période où logo_present=True, qui excède l'attente.
-
-            # Itérons sur les transitions logo_absent -> logo_present et logo_present -> logo_absent
-            # Ou plus simple: itérer sur les segments où le logo EST PRÉSENT.
-            
-            last_ad_end_time = 0.0
-            if not ad_detections: # Pas de pub du tout, toute la vidéo est suspecte si elle est longue
-                if self.video_duration > anomaly_threshold :
-                     expected_ads = max(1, int(self.video_duration / base_interval_for_expectation))
-                     priority = (self.video_duration / base_interval_for_expectation) * expected_ads
-                     suspicious_intervals.append(SuspiciousInterval(0, self.video_duration, expected_ads, 0, self.video_duration, priority))
-                     self.logger.info(f"Aucune pub détectée, toute la vidéo ({self.video_duration/60:.1f} min) est suspecte.")
-                # else :
-                #     self.logger.info("Aucune pub détectée, vidéo courte, pas d'analyse suspecte approfondie.")
-
-            for idx, ad in enumerate(ad_detections):
-                # Segment de programme avant la première pub
-                if idx == 0 and ad.timestamp > anomaly_threshold:
-                    duration_prog = ad.timestamp
-                    expected_ads_missed = max(1, int(duration_prog / base_interval_for_expectation) -1) # -1 car on s'attend à une pub à la fin
-                    if expected_ads_missed > 0:
-                        priority = (duration_prog / base_interval_for_expectation) * expected_ads_missed
-                        suspicious_intervals.append(SuspiciousInterval(0, ad.timestamp, expected_ads_missed, 0, duration_prog, priority))
-                        self.logger.info(f"Intervalle suspect (début vidéo): {seconds_to_hms(0)} -> {seconds_to_hms(ad.timestamp)} (durée: {duration_prog/60:.1f}min, pubs attendues: {expected_ads_missed})")
+            # Segment de programme entre deux pubs
+            if idx < len(ad_detections) - 1:
+                current_ad_timestamp = ad.timestamp
+                next_ad = ad_detections[idx + 1]
+                gap_duration_between_ads = next_ad.timestamp - current_ad_timestamp
                 
-                # Segment de programme entre deux pubs
-                if idx < len(ad_detections) - 1:
-                    current_ad_timestamp = ad.timestamp # Début de la pub actuelle
-                    # Pour trouver la fin de la pub actuelle, il faudrait avoir les segments précis.
-                    # Pour l'instant, on va se baser sur le début de la pub suivante.
-                    # Ceci est une approximation pour identifier les gaps de programme.
-                    # L'idéal serait d'avoir les *fins* des pubs de la passe 1.
-                    # Pour simplifier, on considère l'intervalle entre les *débuts* de détection de non-logo.
-                    # Si le temps entre le début de pub N et début de pub N+1 est très grand...
-                    
-                    # Alternative: utiliser tous les points de détection_history
-                    # Trouver les segments où logo_present == True
-                    # Si un tel segment est > anomaly_threshold, il est suspect.
-                    # Cette logique est déjà plus ou moins dans la formation des intervalles finaux.
+                if gap_duration_between_ads > anomaly_threshold:
+                    expected_ads_in_gap = max(1, int(gap_duration_between_ads / base_interval_for_expectation) - 1)
+                    if expected_ads_in_gap > 0:
+                        priority = (gap_duration_between_ads / base_interval_for_expectation) * expected_ads_in_gap
+                        suspicious_intervals.append(SuspiciousInterval(
+                            current_ad_timestamp,
+                            next_ad.timestamp,
+                            expected_ads_in_gap, 0, gap_duration_between_ads, priority))
+                        self.logger.info(f"Intervalle suspect (entre pubs): {seconds_to_hms(current_ad_timestamp)} -> {seconds_to_hms(next_ad.timestamp)} (durée: {gap_duration_between_ads/60:.1f}min, pubs attendues: {expected_ads_in_gap}, prio: {priority:.1f})")
 
-                    # Restons sur la logique originale : gaps entre pubs détectées.
-                    # La "fin" d'une pub est le timestamp du point de détection où le logo est revenu.
-                    # Mais ad_detections ne contient que les points où logo_present = False.
-
-                    # On va considérer le "gap" comme le temps entre la fin implicite d'une pub et le début de la suivante.
-                    # Pour la passe 1, les "pubs" sont des points.
-                    # Le gap est entre dp_pub1 et dp_pub2.
-                    next_ad = ad_detections[idx+1]
-                    gap_prog_duration = next_ad.timestamp - ad.timestamp # Ceci est en fait la durée (pub + programme)
-                    
-                    # On cherche les LONGUES périodes de PROGRAMME (logo présent)
-                    # On doit identifier les blocs de programme.
-                    # Les `ad_detections` sont des points où le logo est absent.
-                    # On cherche des intervalles [t1, t2] où `logo_present` est `True` pendant longtemps.
-                    # Le code original se basait sur les `DetectionPoint` où `not dp.logo_present`.
-                    # C'est correct : un long intervalle entre deux `not dp.logo_present` signifie
-                    # que le logo a été présent (ou non analysé) pendant cette durée.
-
-                    gap_duration_between_ads = next_ad.timestamp - ad.timestamp # Temps entre début pub N et début pub N+1
-                    if gap_duration_between_ads > anomaly_threshold:
-                        # On s'attend à `gap / base_interval` pubs au total dans ce segment.
-                        # On en a détecté 2 (les bornes). Donc `(gap / base_interval) - 2` pubs manquées.
-                        # Si base_interval est la durée typique prog + pub.
-                        expected_ads_in_gap = max(1, int(gap_duration_between_ads / base_interval_for_expectation) -1) # -1 car on a la pub au début de next_ad
-                        if expected_ads_in_gap > 0:
-                            priority = (gap_duration_between_ads / base_interval_for_expectation) * expected_ads_in_gap
-                            # Le segment suspect est entre la fin de la pub actuelle et le début de la pub suivante.
-                            # On n'a pas la "fin" de la pub 'ad'. On a son 'timestamp'.
-                            # Pour la deuxième passe, on analyse [ad.timestamp, next_ad.timestamp]
-                            suspicious_intervals.append(SuspiciousInterval(
-                                ad.timestamp, # On pourrait tenter d'affiner le début
-                                next_ad.timestamp, # On pourrait tenter d'affiner la fin
-                                expected_ads_in_gap, 0, gap_duration_between_ads, priority))
-                            self.logger.info(f"Intervalle suspect (entre pubs): {seconds_to_hms(ad.timestamp)} -> {seconds_to_hms(next_ad.timestamp)} (durée: {gap_duration_between_ads/60:.1f}min, pubs attendues: {expected_ads_in_gap}, prio: {priority:.1f})")
-
-                last_ad_end_time = ad.timestamp # Approximation: le point de détection de la pub
-
-            # Segment de programme après la dernière pub
-            if ad_detections:
-                last_ad = ad_detections[-1]
-                duration_prog_end = self.video_duration - last_ad.timestamp
-                if duration_prog_end > anomaly_threshold:
-                    expected_ads_missed = max(1, int(duration_prog_end / base_interval_for_expectation) -1)
-                    if expected_ads_missed > 0:
-                        priority = (duration_prog_end / base_interval_for_expectation) * expected_ads_missed
-                        suspicious_intervals.append(SuspiciousInterval(last_ad.timestamp, self.video_duration, expected_ads_missed, 0, duration_prog_end, priority))
-                        self.logger.info(f"Intervalle suspect (fin vidéo): {seconds_to_hms(last_ad.timestamp)} -> {seconds_to_hms(self.video_duration)} (durée: {duration_prog_end/60:.1f}min, pubs attendues: {expected_ads_missed})")
+        # Segment de programme après la dernière pub
+        if ad_detections:
+            last_ad = ad_detections[-1]
+            duration_prog_end = self.video_duration - last_ad.timestamp
+            if duration_prog_end > anomaly_threshold:
+                expected_ads_missed = max(1, int(duration_prog_end / base_interval_for_expectation) - 1)
+                if expected_ads_missed > 0:
+                    priority = (duration_prog_end / base_interval_for_expectation) * expected_ads_missed
+                    suspicious_intervals.append(SuspiciousInterval(last_ad.timestamp, self.video_duration, expected_ads_missed, 0, duration_prog_end, priority))
+                    self.logger.info(f"Intervalle suspect (fin vidéo): {seconds_to_hms(last_ad.timestamp)} -> {seconds_to_hms(self.video_duration)} (durée: {duration_prog_end/60:.1f}min, pubs attendues: {expected_ads_missed})")
         
         suspicious_intervals.sort(key=lambda x: x.priority, reverse=True)
         self.logger.info(f"Total d'intervalles suspects identifiés pour 2e passe: {len(suspicious_intervals)}")
