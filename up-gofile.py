@@ -11,7 +11,7 @@ from dotenv import load_dotenv
 # load from .env file in current directory
 load_dotenv()
 
-def upload_daily_video(gofile_token, folder_id=None, output_dir="./output"):
+def upload_daily_video(gofile_token, folder_id=None, output_dir="./output", delete_on_success=False):
     """
     Upload la vidéo du jour actuel vers Gofile.
     
@@ -20,6 +20,7 @@ def upload_daily_video(gofile_token, folder_id=None, output_dir="./output"):
         folder_id (str, optional): ID du dossier Gofile de destination. 
                                    Si None, Gofile créera automatiquement un nouveau dossier
         output_dir (str): Chemin vers le dossier contenant les vidéos
+        delete_on_success (bool): Si True, supprime la vidéo locale après un upload réussi.
     
     Returns:
         list: URLs de téléchargement ou None en cas d'erreur
@@ -65,6 +66,12 @@ def upload_daily_video(gofile_token, folder_id=None, output_dir="./output"):
         if urls:
             print(f"✅ Upload réussi!")
             print(f"URL de téléchargement: {urls[0]}")
+            if delete_on_success:
+                try:
+                    os.remove(video_path)
+                    print(f"✅ Vidéo supprimée localement: {video_path}")
+                except OSError as e:
+                    print(f"❌ Erreur lors de la suppression de la vidéo locale: {video_path} - {e}")
             return urls
         else:
             print("❌ Échec de l'upload")
@@ -78,12 +85,13 @@ def main():
     gofile_token = os.getenv("GOFILE_TOKEN")
     folder_id = os.getenv("FOLDER_ID")  # Peut être None
     output_dir = os.getenv("OUTPUT_DIR", "./output")  # Valeur par défaut si non définie
+    delete_on_success = os.getenv("DELETE_ON_SUCCESS", "False").lower() == "true"
 
     if not gofile_token:
         print("Erreur: La variable GOFILE_TOKEN n'est pas définie dans le fichier .env!")
         sys.exit(1)
     
-    urls = upload_daily_video(gofile_token=gofile_token, folder_id=folder_id, output_dir=output_dir)
+    urls = upload_daily_video(gofile_token=gofile_token, folder_id=folder_id, output_dir=output_dir, delete_on_success=delete_on_success)
     if urls:
         sys.exit(0)
     else:
